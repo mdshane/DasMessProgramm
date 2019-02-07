@@ -27,7 +27,7 @@ class SMU2Probe2636A(SMU2Probe):
         SMU 2636A needs additional setting for minimal measurement range.
         '''  
         inputs = SMU2Probe.inputs()
-        inputs['range'] = FloatValue('Minimal Range', default=1e-8)
+        inputs['min_range'] = FloatValue('Minimal Range', default=1e-8)
         return inputs
 
 
