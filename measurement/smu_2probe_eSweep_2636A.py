@@ -8,7 +8,7 @@ import time
 from typing import Dict, Tuple, List
 from typing.io import TextIO
 
-from smu_2probe_2636A import SMU2Probe2636A
+from .smu_2probe_2636A import SMU2Probe2636A
 
 @register('SourceMeter two probe voltage hysteresis loop with 2636A')
 class SMU2ProbeESweep2636A(SMU2Probe2636A):
