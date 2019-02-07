@@ -18,9 +18,9 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
     """
 
 
-    def __init__(self, loop_count=1, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
+        self._loop_count = kwargs.pop("loop_count")
         super().__init__(*args, **kwargs)
-        self._loop_count = loop_count
 
     @staticmethod
     def inputs() -> Dict[str, AbstractValue]:
@@ -32,6 +32,10 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         return inputs
 
 
+    @property
+    def recommended_plots(self) -> List[PlotRecommendation]:
+        return [PlotRecommendation('Voltage Sweep', x_label='v', y_label='i', show_fit=True)]
+        
     def _measure(self, file_handle) -> None:
         """
         Custom measurement code lives here.
@@ -40,7 +44,7 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         self.__initialize_device()
         time.sleep(0.5)
 
-        voltage_space = self._setup_voltage_space(loop_count=self.loop_count)
+        voltage_space = self._setup_voltage_space(loop_count=self._loop_count)
         
         self._sweep_voltage(voltage_space, file_handle)
 
@@ -60,9 +64,9 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         min_to_zero = np.linspace(-1*self._max_voltage, 0, self._number_of_points)
         
         # np.tile() aggregates a np.array with values repeated loop_count number of times.
-        middle_loop = np.tile(np.concatenate(max_to_zero, zero_to_min, min_to_zero, zero_to_max), loop_count)
+        middle_loop = np.tile(np.concatenate((max_to_zero, zero_to_min, min_to_zero, zero_to_max)), loop_count)
 
-        return np.concatenate(zero_to_max, middle_loop, max_to_zero)
+        return np.concatenate((zero_to_max, middle_loop, max_to_zero))
         
 
     def _sweep_voltage(self, voltage_space, file_handle):
@@ -79,4 +83,35 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
             file_handle.flush()
             # Send data point to UI for plotting:
             self._signal_interface.emit_data({'v': meas_voltage, 'i': meas_current, 'datetime': datetime.now()})
+            
+    def __write_header(self, file_handle: TextIO) -> None:
+        """Write a file header for present settings.
+
+        Arguments:
+            file_handle: The open file to write to
+        """
+        file_handle.write("# {0}\n".format(datetime.now().isoformat()))
+        file_handle.write('# {}\n'.format(self._comment))
+        file_handle.write("# maximum voltage {0} V\n".format(self._max_voltage))
+        file_handle.write("# current limit {0} A\n".format(self._current_limit))
+        file_handle.write('# nplc {}\n'.format(self._nplc))
+        file_handle.write("Voltage Current\n")
+        file_handle.write('# minimal range {}\n'.format(self._range))
+        
+    def __initialize_device(self) -> None:
+        """Make device ready for measurement."""
+        self._device.arm()
+
+    def __deinitialize_device(self) -> None:
+        """Reset device to a safe state."""
+        self._device.set_voltage(0)
+        self._device.disarm()
+
+    def __measure_data_point(self) -> Tuple[float, float]:
+        """Return one data point: (voltage, current).
+
+        Device must be initialised and armed.
+        """
+        return self._device.read()
+
 

@@ -15,9 +15,9 @@ class SMU2Probe2636A(SMU2Probe):
     """Voltage driven 2-probe current measurement on a sourcemeter."""
 
 
-    def __init__(self, min_range=1E-8, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
+        self._range = kwargs.pop("min_range") # TODO
         super().__init__(*args, **kwargs)
-        self._range = min_range
         self._device.voltage_driven(0, self._current_limit, self._nplc, range=self._range)
 
 
@@ -33,7 +33,7 @@ class SMU2Probe2636A(SMU2Probe):
 
     @property
     def recommended_plots(self) -> List[PlotRecommendation]:
-        return [PlotRecommendation('Voltage Sweep', x_label='v', y_label='i', show_fit=False)]
+        return [PlotRecommendation('Voltage Sweep', x_label='v', y_label='i', show_fit=True)]
 
 
     def _measure(self, file_handle) -> None:
@@ -65,6 +65,26 @@ class SMU2Probe2636A(SMU2Probe):
         Arguments:
             file_handle: The open file to write to
         """
-        super().__write_header(file_handle)
+        file_handle.write("# {0}\n".format(datetime.now().isoformat()))
+        file_handle.write('# {}\n'.format(self._comment))
+        file_handle.write("# maximum voltage {0} V\n".format(self._max_voltage))
+        file_handle.write("# current limit {0} A\n".format(self._current_limit))
+        file_handle.write('# nplc {}\n'.format(self._nplc))
+        file_handle.write("Voltage Current\n")
         file_handle.write('# minimal range {}\n'.format(self._range))
+        
+    def __initialize_device(self) -> None:
+        """Make device ready for measurement."""
+        self._device.arm()
 
+    def __deinitialize_device(self) -> None:
+        """Reset device to a safe state."""
+        self._device.set_voltage(0)
+        self._device.disarm()
+
+    def __measure_data_point(self) -> Tuple[float, float]:
+        """Return one data point: (voltage, current).
+
+        Device must be initialised and armed.
+        """
+        return self._device.read()
