@@ -23,10 +23,19 @@ class SMU2Probe(AbstractMeasurement):
     VISA_LIBRARY = "@py"
     QUERY_DELAY = 0.0
 
-    def __init__(self, signal_interface: SignalInterface,
-                 path: str, contacts: Tuple[str, str],
-                 v: float = 0.0, i: float = 1e-6, n: int = 100,
-                 nplc: int = 1, comment: str = '', gpib: str = '') -> None:
+    def __init__(
+        self, 
+        signal_interface: SignalInterface,
+        path: str, 
+        contacts: Tuple[str, str],
+        v: float = 0.0, 
+        i: float = 1e-6, 
+        n: int = 100,
+        nplc: int = 1, 
+        comment: str = '', 
+        gpib: str = ''
+        ) -> None:
+
         super().__init__(signal_interface, path, contacts)
         self._max_voltage = v
         self._current_limit = i
