@@ -27,7 +27,7 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         '''
         SMU 2636A needs additional setting for minimal measurement range.
         '''  
-        inputs = SMU2ProbeESweep2636A.inputs()
+        inputs = SMU2Probe2636A.inputs()
         inputs['loop_count'] = IntegerValue('Number of hysteresis loops.', default=1)
         return inputs
 
