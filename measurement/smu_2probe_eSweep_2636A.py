@@ -232,7 +232,6 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         file_handle.write("# maximum voltage {0} V\n".format(self._max_voltage))
         file_handle.write("# current limit {0} A\n".format(self._current_limit))
         file_handle.write('# nplc {}\n'.format(self._nplc))
-        file_handle.write("Voltage Current\n")
         file_handle.write('# minimal range {}\n'.format(self._range))
         file_handle.write("Datetime Voltage Current T3\n")
         
