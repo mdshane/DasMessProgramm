@@ -93,8 +93,8 @@ class SMU2Probe(AbstractMeasurement):
     def _measure(self, file_handle) -> None:
         """Custom measurement code lives here.
         """
-        self.__write_header(file_handle)
-        self.__initialize_device()
+        self._write_header(file_handle)
+        self._initialize_device()
         time.sleep(0.5)
         voltages, currents = [], []
 
@@ -105,7 +105,7 @@ class SMU2Probe(AbstractMeasurement):
                 break
 
             self._device.set_voltage(voltage)
-            voltage, current = self.__measure_data_point()
+            voltage, current = self._measure_data_point()
             voltages.append(voltage)
             currents.append(current)
             file_handle.write("{} {}\n".format(voltage, current))
@@ -113,23 +113,23 @@ class SMU2Probe(AbstractMeasurement):
             # Send data point to UI for plotting:
             self._signal_interface.emit_data({'v': voltage, 'i': current, 'datetime': datetime.now()})
 
-        self.__deinitialize_device()
+        self._deinitialize_device()
 
         conductance, _ = np.polyfit(voltages, currents, 1)
         resistance = 1 / conductance
         self._write_overview(Resistance=resistance, Datetime=datetime.now().isoformat(),
                              Aborted=self._should_stop.is_set())
 
-    def __initialize_device(self) -> None:
+    def _initialize_device(self) -> None:
         """Make device ready for measurement."""
         self._device.arm()
 
-    def __deinitialize_device(self) -> None:
+    def _deinitialize_device(self) -> None:
         """Reset device to a safe state."""
         self._device.set_voltage(0)
         self._device.disarm()
 
-    def __write_header(self, file_handle: TextIO) -> None:
+    def _write_header(self, file_handle: TextIO) -> None:
         """Write a file header for present settings.
 
         Arguments:
@@ -142,7 +142,7 @@ class SMU2Probe(AbstractMeasurement):
         file_handle.write('# nplc {}\n'.format(self._nplc))
         file_handle.write("Voltage Current\n")
 
-    def __measure_data_point(self) -> Tuple[float, float]:
+    def _measure_data_point(self) -> Tuple[float, float]:
         """Return one data point: (voltage, current).
 
         Device must be initialised and armed.

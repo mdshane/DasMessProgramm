@@ -59,15 +59,15 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         """
         Custom measurement code lives here.
         """
-        self.__write_header(file_handle)
-        self.__initialize_device()
+        self._write_header(file_handle)
+        self._initialize_device()
         time.sleep(0.5)
 
         voltage_space = self._setup_voltage_space(loop_count=self._loop_count)
         
         self._sweep_voltage(voltage_space, file_handle)
 
-        self.__deinitialize_device()
+        self._deinitialize_device()
 
     
     def _setup_voltage_space(self, loop_count=1):
@@ -97,13 +97,12 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
                 break
 
             self._device.set_voltage(voltage)
-            time.sleep(15)
             self._acquire_data_point(file_handle)
 
 
 
     def _acquire_data_point(self, file_handle):
-        meas_voltage, meas_current = self.__measure_data_point()
+        meas_voltage, meas_current = self._measure_data_point()
         T3 = self._temp.T3
         
         file_handle.write('{} {} {} {} \n'.format(datetime.now().isoformat(), 
@@ -113,7 +112,7 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         self._signal_interface.emit_data({'v': meas_voltage, 'i': meas_current, 'datetime': datetime.now()})
 
 
-    def __write_header(self, file_handle: TextIO) -> None:
+    def _write_header(self, file_handle: TextIO) -> None:
         """Write a file header for present settings.
 
         Arguments:
@@ -126,21 +125,6 @@ class SMU2ProbeESweep2636A(SMU2Probe2636A):
         file_handle.write('# nplc {}\n'.format(self._nplc))
         file_handle.write('# minimal range {}\n'.format(self._range))
         file_handle.write("Datetime Voltage Current T3\n")
-        
-    def __initialize_device(self) -> None:
-        """Make device ready for measurement."""
-        self._device.arm()
 
-    def __deinitialize_device(self) -> None:
-        """Reset device to a safe state."""
-        self._device.set_voltage(0)
-        self._device.disarm()
-
-    def __measure_data_point(self) -> Tuple[float, float]:
-        """Return one data point: (voltage, current).
-
-        Device must be initialised and armed.
-        """
-        return self._device.read()
 
 

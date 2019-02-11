@@ -39,8 +39,8 @@ class SMU2Probe2636A(SMU2Probe):
     def _measure(self, file_handle) -> None:
         """Custom measurement code lives here.
         """
-        self.__write_header(file_handle)
-        self.__initialize_device()
+        self._write_header(file_handle)
+        self._initialize_device()
         time.sleep(0.5)
 
         for voltage in np.linspace(0, self._max_voltage, self._number_of_points):
@@ -50,16 +50,16 @@ class SMU2Probe2636A(SMU2Probe):
                 break
 
             self._device.set_voltage(voltage)
-            voltage, current = self.__measure_data_point()
+            voltage, current = self._measure_data_point()
             file_handle.write("{} {}\n".format(voltage, current))
             file_handle.flush()
             # Send data point to UI for plotting:
             self._signal_interface.emit_data({'v': voltage, 'i': current, 'datetime': datetime.now()})
 
-        self.__deinitialize_device()
+        self._deinitialize_device()
 
 
-    def __write_header(self, file_handle: TextIO) -> None:
+    def _write_header(self, file_handle: TextIO) -> None:
         """Write a file header for present settings.
 
         Arguments:
@@ -70,19 +70,18 @@ class SMU2Probe2636A(SMU2Probe):
         file_handle.write("# maximum voltage {0} V\n".format(self._max_voltage))
         file_handle.write("# current limit {0} A\n".format(self._current_limit))
         file_handle.write('# nplc {}\n'.format(self._nplc))
-        file_handle.write("Voltage Current\n")
         file_handle.write('# minimal range {}\n'.format(self._range))
         
-    def __initialize_device(self) -> None:
+    def _initialize_device(self) -> None:
         """Make device ready for measurement."""
         self._device.arm()
 
-    def __deinitialize_device(self) -> None:
+    def _deinitialize_device(self) -> None:
         """Reset device to a safe state."""
         self._device.set_voltage(0)
         self._device.disarm()
 
-    def __measure_data_point(self) -> Tuple[float, float]:
+    def _measure_data_point(self) -> Tuple[float, float]:
         """Return one data point: (voltage, current).
 
         Device must be initialised and armed.
