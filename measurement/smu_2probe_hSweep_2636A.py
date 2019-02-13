@@ -1,6 +1,6 @@
 from .measurement import register, AbstractMeasurement, Contacts, PlotRecommendation
 from .measurement import StringValue, FloatValue, IntegerValue, DatetimeValue, AbstractValue, SignalInterface, GPIBPathValue
-from .measurement.gpib_Instrument import *
+from .gpib_Instrument import *
 
 
 import numpy as np
@@ -15,6 +15,7 @@ from scientificdevices.oxford.ips120 import IPS120_10, ControlMode, Communicatio
 from scientificdevices.oxford.itc503 import ITC
 import gpib
 
+from ast import literal_eval
 
 
 @register('SourceMeter two probe h-field hysteresis loop with 2636A')
@@ -24,16 +25,19 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         
         self._sweep_rate = kwargs.pop("sweep_rate")
         self._fields = kwargs.pop("fields")
+        self._sample_name = kwargs.pop("sample_name")
         super().__init__(*args, **kwargs)
 
         # Initialisation of magnet controller
         self._mag = IPS120_10()
-        self._state = self.State.START
+        
+        # Initialise the ITC503 Temperature Controller
+        self._temp = ITC(get_gpib_device(24))
         
         try:
-            self._fields = literal_eval(fields)
-        except:
-            print('ERROR', 'Malformed String for Fields')
+            self._fields = literal_eval(self._fields)
+        except Exception as e:
+            print('ERROR', 'Malformed String for Fields', e)
             self.abort()
             return
     
@@ -43,7 +47,7 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
                 self.abort()
                 return  
             
-        if not (0 <= sweep_rate <= 0.3): 
+        if not (0 <= self._sweep_rate <= 0.5): 
             print("you're insane! sweep rate is too high. (0 ... 0.3)")
             self.abort()
             return   
@@ -59,14 +63,15 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         '''  
         inputs = SMU2Probe2636A.inputs()
         inputs['sweep_rate'] = FloatValue('Sweep Rate [T/min]', default=0.1)
-        inputs['fields'] = StringValue('Fields', default='[]'),
+        inputs['fields'] = StringValue('Fields', default='[0.0, 0.1, 0.2, 0.3, 0.2, 0.1, 0.0]')
+        inputs['sample_name'] = StringValue('Sample Name', default='ChipXX_depNoXX')
         return inputs
       
     @staticmethod
     def outputs() -> Dict[str, AbstractValue]:
         return {'v': FloatValue('Voltage'),
                 'i': FloatValue('Current'),
-                'datetime': DatetimeValue('Timestamp')
+                'datetime': DatetimeValue('Timestamp'),
                 'B': DatetimeValue('Field[T]')}
 
     @property
@@ -75,6 +80,12 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         return [PlotRecommendation('Voltage Sweep', x_label='v', y_label='i', show_fit=True),
                 PlotRecommendation('Magnetic Field', x_label='v', y_label='B', show_fit=False)]
 
+    def _generate_file_name_prefix(self) -> str:
+        return '{}_hSweepHysteresis_contacts_{}_'.format(self._sample_name, '--'.join(self._contacts))
+
+    def _generate_plot_file_name_prefix(self, pair) -> str:
+        return '{}_hSweepHysteresis_contacts_{}_plot-{}-{}_'.format(self._sample_name, '--'.join(self._contacts), pair[0], pair[1])
+        
         
     def _measure(self, file_handle) -> None:
         """
@@ -94,12 +105,12 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
             
             try:
                 self._sweep_voltage(voltage_space, file_handle)
-            except:
-                print('{} failed to acquire datapoint.'.format(datetime.now().isoformat()))
+            except Exception as e:
+                print('{} failed to acquire datapoint. ERROR:{}'.format(datetime.now().isoformat(), e))
                 traceback.print_exc()
                 
 
-        self.__deinitialize_device()
+        self._deinitialize_device()
 
     
     def _setup_voltage_space(self):
@@ -123,7 +134,14 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
                 break
 
             self._device.set_voltage(voltage)
-            self._acquire_data_point(file_handle)
+            while True:
+                try:
+                    self._acquire_data_point(file_handle)
+                except ValueError:
+                    pass
+                else:
+                    break
+                            
 
 
     def _goto_field_and_stabilize(self, field):
@@ -139,10 +157,10 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
             if abs(current_field - field) < 0.001:
                 field_reached = True
 
-            sleep(1)
+            time.sleep(1)
 
         print('DEBUG', datetime.now().isoformat() ,'waiting 60s to settle')
-        sleep(60)
+        time.sleep(10)
         
  
     def _acquire_data_point(self, file_handle):
@@ -150,7 +168,7 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         T1, T2, T3 = self._temp.T1, self._temp.T2, self._temp.T3
         field = self._mag.get_field()
         
-        file_handle.write('{} {} {} {} {} {} {} {} {} {}\n'.format(datetime.now().isoformat(), field, 
+        file_handle.write('{} {} {} {} {} {} {} \n'.format(datetime.now().isoformat(), field, 
                                                              meas_voltage, meas_current, T1, T2, T3))
         file_handle.flush()
         
@@ -159,12 +177,13 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
 
 
 
-        def _write_header(self, file_handle: TextIO) -> None:
+    def _write_header(self, file_handle: TextIO) -> None:
         """Write a file header for present settings.
 
         Arguments:
             file_handle: The open file to write to
         """
+        
         file_handle.write("# {0}\n".format(datetime.now().isoformat()))
         file_handle.write('# {}\n'.format(self._comment))
         file_handle.write("# maximum voltage {0} V\n".format(self._max_voltage))
@@ -176,7 +195,7 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
 
         file_handle.write("Datetime Field Voltage Current T1 T2 T3\n")
 
-    def __initialize_device(self):
+    def _initialize_device(self):
         self._device.arm()
 
         self._mag.clear()
@@ -186,7 +205,7 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         self._mag.set_switch_heater(SwitchHeaterMode.ON)
         self._mag.set_field_sweep_rate(self._sweep_rate)
         
-    def __deinitialize_device(self) -> None:
+    def _deinitialize_device(self) -> None:
         self._device.set_voltage(0)
         self._device.disarm()
 
@@ -195,7 +214,7 @@ class SMU2ProbeHSweep2636A(SMU2Probe2636A):
         
         field = self._mag.get_field()
         while abs(field) >= 0.001:
-            sleep(1)
+            time.sleep(1)
             field = self._mag.get_field()
             
         self._mag.set_sweep_mode(SweepMode.HOLD)

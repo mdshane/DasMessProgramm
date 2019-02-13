@@ -1,6 +1,6 @@
 from .measurement import register, AbstractMeasurement, Contacts, PlotRecommendation
 from .measurement import StringValue, FloatValue, IntegerValue, DatetimeValue, AbstractValue, SignalInterface, GPIBPathValue
-from .measurement.gpib_Instrument import *
+from .gpib_Instrument import *
 
 
 import numpy as np
