@@ -171,7 +171,7 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
                 
                 try:
                     rate, mean = np.polyfit(np.arange(0,len(self._last_temperatures)), self._last_temperatures, 1)
-                    print('DEBUG: Checking rate {2:.5f} K/min.'.format(rate))
+                    print('DEBUG: Checking rate {0:.5f} K/min.'.format(rate))
                 except:
                     print('ERROR', '-'*74)
                     traceback.print_exc()
