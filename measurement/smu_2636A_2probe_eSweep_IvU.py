@@ -10,7 +10,7 @@ import time
 from typing import Dict, Tuple, List
 from typing.io import TextIO
 
-from .smu_2636A_2probe_I-U import SMU2Probe2636A
+from .smu_2636A_2probe_IvU import SMU2Probe2636A
 from scientificdevices.oxford.itc503 import ITC
 import gpib
 
