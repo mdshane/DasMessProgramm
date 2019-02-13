@@ -19,7 +19,7 @@ from ast import literal_eval
 
 
 @register('SourceMeter 2636A - I(U) - Two probe H-Field hysteresis loop')
-class SMU2ProbeHSweep2636A(SMU2Probe2636A):
+class SMU2ProbeHSweep2636AIvU(SMU2Probe2636A):
 
     def __init__(self, *args, **kwargs):
         
