@@ -18,6 +18,7 @@ import gpib
 import traceback
 
 from ast import literal_eval
+from enum import Enum
 
 
 @register('SourceMeter 2636A - I(B) - Two probe H-Field hysteresis loop')
@@ -29,8 +30,10 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
         HALTING_UP = 2
         GOING_DOWN = 3
         HALTING_DOWN = 4
-        GOING_ZERO = 5
-        DONE = 6
+        GOING_BACK_UP = 5
+        HALTING_UP2 = 6
+        GOING_ZERO = 7
+        DONE = 8
 
     def __init__(self, *args, **kwargs):
         
@@ -45,14 +48,15 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
         # Initialisation of magnet controller
         self._mag = IPS120_10()
         self._state = self.State.START
+        self._last_field = 0.0
         
         if not (0 <= self._max_field <= 8): 
             print("field is too high or too low. (0 ... 8)")
             self.abort()
             return  
             
-        if not (0 <= self._sweep_rate <= 0.3): 
-            print("you're insane! sweep rate is too high. (0 ... 0.3)")
+        if not (0 <= self._sweep_rate <= 1.0): 
+            print("you're insane! sweep rate is too high. (0 ... 1.0)")
             self.abort()
             return   
         
@@ -66,6 +70,7 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
         IPS needs additional argunemts.
         '''  
         inputs = SMU2Probe2636A.inputs()
+        inputs.pop('n')
         inputs['sweep_rate'] = FloatValue('Sweep Rate [T/min]', default=0.1)
         inputs['max_field'] = FloatValue('Max Field [T]', default=1)
         inputs['sample_name'] = StringValue('Sample Name', default='ChipXX_depNoXX')
@@ -79,7 +84,7 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
 
     @property
     def recommended_plots(self) -> List[PlotRecommendation]:
-        return [PlotRecommendation('Field Sweep', x_label='B', y_label='i', show_fit=True)]
+        return [PlotRecommendation('Field Sweep', x_label='B', y_label='i', show_fit=False)]
 
     def _generate_file_name_prefix(self) -> str:
         return '{}_hSweepHysteresis_contacts_{}_'.format(self._sample_name, '--'.join(self._contacts))
@@ -95,6 +100,8 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
         self._write_header(file_handle)
         self._initialize_device()
         time.sleep(0.5)
+        
+        self._device.set_voltage(self._max_voltage)
     
         while not self._should_stop.is_set():
             try:
@@ -105,12 +112,22 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
                 
             self._switch_states_if_necessary()
 
-        self.__deinitialize_device()
+        self._deinitialize_device()
 
 
 
     def _switch_states_if_necessary(self):
-        field = self._mag.get_field()
+        try:
+            field = self._mag.get_field()
+        except Exception as e:
+            print('{} failed to acquire datapoint. ERROR:{}'.format(datetime.now().isoformat(), e))
+            traceback.print_exc()
+        
+        if not field:
+            field = self._last_field
+            
+        self._last_field = field
+        
         
         if self._state == self.State.START:
             self._mag.set_target_field(self._max_field)
@@ -118,6 +135,7 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
             self._state = self.State.GOING_UP
         elif self._state == self.State.GOING_UP:
             if abs(field - self._max_field) < 0.001:
+                time.sleep(2)
                 self._state = self.State.HALTING_UP
                 self._mag.set_sweep_mode(SweepMode.HOLD)
         elif self._state == self.State.HALTING_UP:
@@ -126,14 +144,25 @@ class SMU2ProbeHSweep2636AIvB(SMU2Probe2636A):
             self._mag.set_sweep_mode(SweepMode.TO_SET_POINT)
         elif self._state == self.State.GOING_DOWN:
             if abs(field - (-self._max_field)) < 0.001:
+                time.sleep(2)
                 self._state = self.State.HALTING_DOWN
                 self._mag.set_sweep_mode(SweepMode.HOLD)
         elif self._state == self.State.HALTING_DOWN:
+            self._mag.set_target_field(self._max_field)
+            self._mag.set_sweep_mode(SweepMode.TO_SET_POINT)
+            self._state = self.State.GOING_BACK_UP
+        elif self._state == self.State.GOING_BACK_UP:
+            if abs(field - self._max_field) < 0.001:
+                time.sleep(2)
+                self._state = self.State.HALTING_UP2
+                self._mag.set_sweep_mode(SweepMode.HOLD)
+        elif self._state == self.State.HALTING_UP2:
             self._mag.set_target_field(0)
             self._mag.set_sweep_mode(SweepMode.TO_ZERO)
             self._state = self.State.GOING_ZERO
         elif self._state == self.State.GOING_ZERO:
             if abs(field) < 0.001:
+                time.sleep(2)
                 self._state = self.State.DONE
                 self._mag.set_sweep_mode(SweepMode.HOLD)
         else:

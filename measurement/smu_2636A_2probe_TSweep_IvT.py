@@ -141,8 +141,8 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
                 self._should_stop.set()
         
                 if self._temp.T1 < 20.0:
-                    print('Setpoint set to 20.0K for safety.')
-                    #self._temp.temperature_set_point = 20.0
+                    print('Setpoint set to 5.0K for safety.')
+                    self._temp.temperature_set_point = 5.0
                     
         
         self.__deinitialize_device()
