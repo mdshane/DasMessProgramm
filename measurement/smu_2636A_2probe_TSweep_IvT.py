@@ -85,11 +85,9 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
         
         sleep(1)
 
-
         # Setting up the bot for updates via telegram
         config = configparser.ConfigParser()
-        config.read('..\\..\\config.ini')
-
+        config.read('../config.ini')
         self.telegram_bot = telegram.Bot(token= config['ALL']['TELEGRAM_TOKEN'])
         self.telegram_chat_id = config['ALL']['TELEGRAM_CHAT_ID']
 
@@ -240,7 +238,12 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
         self._temp.stop_temperature_sweep()
         self._device.set_voltage(0)
         self._device.disarm()
-        self.send_meassage_telegram('Measurement finished, Sweep Stopped.', send_status = True)
+        self.send_meassage_telegram(
+            bot=self.telegram_bot, 
+            chat_id=self.telegram_chat_id, 
+            message='Measurement finished, Sweep Stopped.', 
+            send_status = True
+            )
 
     def __write_header(self, file_handle: TextIO) -> None:
         file_handle.write("# {0}\n".format(datetime.now().isoformat()))
