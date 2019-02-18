@@ -25,7 +25,10 @@ import gpib
 import traceback
 
 from ast import literal_eval
+
+
 import telegram 
+import configparser
 
 
 @register('SourceMeter 2636A - I(T) - Two probe temperature Sweep')
@@ -81,6 +84,14 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
         self._last_toggle = time()
         
         sleep(1)
+
+
+        # Setting up the bot for updates via telegram
+        config = configparser.ConfigParser()
+        config.read('..\\..\\config.ini')
+
+        self.telegram_bot = telegram.Bot(token= config['ALL']['TELEGRAM_TOKEN'])
+        self.telegram_chat_id = config['ALL']['TELEGRAM_CHAT_ID']
 
     @staticmethod
     def number_of_contacts():
@@ -191,7 +202,12 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
         self._temp.temperature_set_point = current_temperature
         self._temp.set_temperature_sweep(self._temperature_end, sweep_time = sweep_time)
         self._temp.start_temperature_sweep()
-        self.send_meassage_telegram('Start of Sweep to `{:.2f} K`'.format(self._temperature_end), send_status = True)
+        self.send_meassage_telegram(
+            bot=self.telegram_bot, 
+            chat_id=self.telegram_chat_id, 
+            message='Start of Sweep to `{:.2f} K`'.format(self._temperature_end), 
+            send_status = True
+            )
 
     def _toggle_pid_if_necessary(self):
         current_temperature = self._temp.T1
@@ -237,9 +253,7 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
     def __measure_data_point(self):
         return self._device.read()
         
-    def send_meassage_telegram(self, message, send_status = True):
-        bot = telegram.Bot(token= '606451461:AAGF1wdJGKmp2jC21VN_61ZT_YZJRllIBR8')
-        chat_id = -253161514
+    def send_meassage_telegram(self, bot, chat_id, message, send_status = True):
 
         if send_status:
             device_status = self._temp.device_status
