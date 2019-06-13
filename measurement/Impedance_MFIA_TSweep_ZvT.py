@@ -1,5 +1,11 @@
 from .measurement import register, AbstractMeasurement, Contacts, PlotRecommendation
-from .measurement import StringValue, FloatValue, IntegerValue, DatetimeValue, AbstractValue, SignalInterface, GPIBPathValue
+from .measurement import (StringValue,
+                          FloatValue,
+                          IntegerValue,
+                          DatetimeValue,
+                          AbstractValue,
+                          SignalInterface,
+                          GPIBPathValue)
 
 from typing import Dict, Tuple, List
 from typing.io import TextIO
@@ -9,6 +15,9 @@ import zhinst.utils
 from scientificdevices.oxford.itc503 import ITC
 from scientificdevices.oxford.ilm import ILM
 from .gpib_Instrument import *
+from mfia.mfia_classes import MFIADevice
+from mfia.ContinuousImpedanceMeasurement_MFIA import ContinuousImpedanceMeasurement
+
 
 from datetime import datetime
 from time import sleep, time
@@ -72,7 +81,9 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
         self._ilm =  ILM(get_gpib_device(24))
         
         # Initialise the the MFIA
-        self._frequencies = frequencies
+        # List call is a hack to avoid manipulating the whole DasMessProgramm code
+        self._frequencies = literal_eval(frequencies)
+
         self._test_signal = test_signal
         self.plot_freq = plot_freq
         self.sleep_between_measurements = sleep_between_measurements
@@ -147,7 +158,9 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
             device_id=self.device_id,
             settings=settings,
             file_base_path=path,
-            comment=self._comment)
+            comment=self._comment,
+            frequencies=self._frequencies
+        )
 
 
         sleep(1)
@@ -165,9 +178,9 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
                 'sweep_rate': FloatValue('Sweep Rate [K/min]', default=1),
                 'temperature_end': FloatValue('Target temperature', default=295),                
                 'test_signal' : FloatValue('Test Signal [V]', default=0.0),
-                'frequencies': FloatValue('Frequency List [Hz]', default=[100, 1000, 10000, 100000, 1000000]),
-                'plot_freq': IntegerValue('Plot Frequency No.'), default=0),
-                'sleep_between_measurements': FloatValue('Sleep Time between individual measurements [s]'), default=1.0)
+                'frequencies': StringValue('Frequency List [Hz]', default=[100, 1000, 10000, 100000, 1000000]),
+                'plot_freq': IntegerValue('Plot Frequency No.', default=0),
+                'sleep_between_measurements': FloatValue('Sleep Time between individual measurements [s]', default=1.0)
                 }
 
     
@@ -188,11 +201,9 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
     def recommended_plots(self) -> List[PlotRecommendation]:
         return [PlotRecommendation('Impedance Monitoring', x_label='T', y_label='AbsZ', show_fit=False)]
 
-    def _measure(self):
+    def _measure(self, file_handle):
 
         self._start_sweep()
-
-        self.mfia_measurement.start_auto_ranging()
 
         while not self._should_stop.is_set():
             try:
@@ -275,7 +286,11 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
     
 
     def _acquire_data_point(self):
-        data_list = self.mfia_measurement.measure(self._frequencies)
+        data_list = self.mfia_measurement.measure(
+            self._temp.T1,
+            self._temp.T2,
+            self._temp.T3
+        )
         data = data_list[self.plot_freq]
              
         self._signal_interface.emit_data({
