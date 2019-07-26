@@ -159,7 +159,7 @@ class SMU2ProbeIvTBlue(AbstractMeasurement):
         
 
     def _check_temp_reached(self):
-        if (self._temp.T1 - self._temperature_end) > 1.0:
+        if np.abs(self._temp.T1 - self._temperature_end) > 1.0:
             return False
         else:
             maximal_list_len = 10
