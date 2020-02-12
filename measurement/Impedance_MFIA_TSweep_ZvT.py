@@ -29,7 +29,7 @@ import telegram
 import configparser
 
 
-@register('MFIA - Z(T) - Two probe temperature Sweep')
+@register('MFIA - Z(T) - Four probe temperature Sweep')
 class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
 
 
@@ -150,7 +150,8 @@ class Impedance_MFIA_TSweep_ZvT(AbstractMeasurement):
             settings=settings,
             file_base_path=path,
             comment=self._comment,
-            frequencies = self._frequencies)
+            frequencies = self._frequencies,
+            f_set_sleep_time=self.sleep_between_measurements)
 
 
         sleep(1)
